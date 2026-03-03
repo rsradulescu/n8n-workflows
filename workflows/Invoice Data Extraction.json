@@ -180,6 +180,21 @@
         -384
       ],
       "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Needed \nPDF Vector (API key from pdfvector.com)",
+        "height": 112,
+        "width": 304
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -800,
+        112
+      ],
+      "typeVersion": 1,
+      "id": "2954a3d3-1f23-494e-9a7e-f6f14d022443",
+      "name": "Sticky Note1"
     }
   ],
   "pinData": {},
@@ -264,7 +279,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "ededd788-4b66-41e5-9d03-d052e0bc620b",
+  "versionId": "150137d4-8dd3-438d-95b6-d93152e9f96b",
   "meta": {
     "instanceId": "b4a9372addbbd747f7a1557b539e3d3b65b372406c49eea377aa96bab731c1b4"
   },
