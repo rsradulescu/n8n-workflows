@@ -1,0 +1,271 @@
+{
+  "name": "Parses resumes and scoring",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "id": "f7cf9cef-1910-4721-90b9-9b50bfba4473",
+      "name": "Google Drive Trigger1",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        144,
+        144
+      ],
+      "notes": "Watch 'Resumes' folder for new files"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": "={{ $json.id }}",
+        "options": {}
+      },
+      "id": "f110d6b0-74d3-4936-9e03-9d8968eb4940",
+      "name": "Get Resume from Google Drive1",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        352,
+        144
+      ],
+      "notes": "Download resume file from Google Drive"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "operation": "extract",
+        "inputType": "file",
+        "binaryPropertyName": "data",
+        "prompt": "Extract all relevant information from this resume document or image including personal details, work experience with dates and achievements, education, all technical and soft skills, certifications, and languages. Handle both digital documents and scanned/photographed resumes. Pay special attention to dates for calculating experience.",
+        "schema": "{\"type\":\"object\",\"properties\":{\"personalInfo\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"phone\":{\"type\":\"string\"},\"location\":{\"type\":\"string\"},\"linkedIn\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"}}},\"workExperience\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"company\":{\"type\":\"string\"},\"position\":{\"type\":\"string\"},\"startDate\":{\"type\":\"string\"},\"endDate\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"achievements\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"technologies\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}},\"education\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"institution\":{\"type\":\"string\"},\"degree\":{\"type\":\"string\"},\"field\":{\"type\":\"string\"},\"graduationDate\":{\"type\":\"string\"},\"gpa\":{\"type\":\"string\"}}}},\"skills\":{\"type\":\"object\",\"properties\":{\"technical\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"soft\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"languages\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"language\":{\"type\":\"string\"},\"proficiency\":{\"type\":\"string\"}}}}}},\"certifications\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"issuer\":{\"type\":\"string\"},\"date\":{\"type\":\"string\"},\"expiryDate\":{\"type\":\"string\"}}}}},\"required\":[\"personalInfo\"],\"additionalProperties\":false}"
+      },
+      "id": "f0172c25-cdc7-40f7-b814-08d895b5ca10",
+      "name": "PDF Vector - Parse Resume1",
+      "type": "n8n-nodes-pdfvector.pdfVector",
+      "typeVersion": 1,
+      "position": [
+        544,
+        144
+      ],
+      "notes": "Extract candidate information"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resume Scoring Logic - FIXED FOR PDF VECTOR\nconst candidate = $input.first().json.data;\n\n// Initialize score and breakdown\nlet score = 0;\nlet scoreBreakdown = {\n  experienceScore: 0,\n  educationScore: 0,\n  skillsScore: 0\n};\n\n// 1. Years of Experience (40 points max)\nlet totalYearsExperience = 0;\nif (candidate.workExperience && candidate.workExperience.length > 0) {\n  candidate.workExperience.forEach(exp => {\n    const start = new Date(exp.startDate);\n    const end = exp.endDate && exp.endDate.toLowerCase() !== 'present' \n      ? new Date(exp.endDate) \n      : new Date();\n    \n    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {\n      const years = (end - start) / (1000 * 60 * 60 * 24 * 365);\n      totalYearsExperience += years;\n    }\n  });\n  \n  // Score: 0-2 years = 10pts, 2-5 years = 25pts, 5+ years = 40pts\n  if (totalYearsExperience >= 5) {\n    scoreBreakdown.experienceScore = 40;\n  } else if (totalYearsExperience >= 2) {\n    scoreBreakdown.experienceScore = 25;\n  } else if (totalYearsExperience > 0) {\n    scoreBreakdown.experienceScore = 10;\n  }\n}\nscore += scoreBreakdown.experienceScore;\n\n// 2. Education Level (30 points max)\nif (candidate.education && candidate.education.length > 0) {\n  const degrees = candidate.education.map(edu => edu.degree?.toLowerCase() || '');\n  \n  if (degrees.some(d => d.includes('phd') || d.includes('doctorate'))) {\n    scoreBreakdown.educationScore = 30;\n  } else if (degrees.some(d => d.includes('master') || d.includes('mba'))) {\n    scoreBreakdown.educationScore = 25;\n  } else if (degrees.some(d => d.includes('bachelor') || d.includes('bs') || d.includes('ba'))) {\n    scoreBreakdown.educationScore = 20;\n  } else {\n    scoreBreakdown.educationScore = 10;\n  }\n}\nscore += scoreBreakdown.educationScore;\n\n// 3. Skills Match (30 points max)\n// Define required skills for the position\nconst requiredSkills = [\n  'javascript', 'python', 'react', 'node', 'nodejs', \n  'sql', 'api', 'git', 'aws', 'docker'\n];\n\nlet skillsMatched = 0;\n// Check technical skills (PDF Vector returns skills.technical)\nif (candidate.skills?.technical && candidate.skills.technical.length > 0) {\n  const candidateSkills = candidate.skills.technical.map(s => s.toLowerCase());\n  \n  requiredSkills.forEach(reqSkill => {\n    if (candidateSkills.some(skill => skill.includes(reqSkill))) {\n      skillsMatched++;\n    }\n  });\n  \n  // Score: 3 points per matched skill, max 30\n  scoreBreakdown.skillsScore = Math.min(skillsMatched * 3, 30);\n}\nscore += scoreBreakdown.skillsScore;\n\n// Calculate final percentage score\nconst finalScore = Math.round(score);\n\n// Determine status\nlet status = '';\nif (finalScore >= 75) {\n  status = 'Strong Candidate - Schedule Interview';\n} else if (finalScore >= 50) {\n  status = 'Potential - Review Further';\n} else {\n  status = 'Not a Match';\n}\n\n// Format experience for Google Sheets\nconst experienceText = candidate.workExperience && candidate.workExperience.length > 0\n  ? candidate.workExperience.map(exp => `${exp.position} at ${exp.company} (${exp.startDate}-${exp.endDate || 'Present'})`).join('; ')\n  : '';\n\n// Format education for Google Sheets\nconst educationText = candidate.education && candidate.education.length > 0\n  ? candidate.education.map(edu => `${edu.degree} from ${edu.institution} (${edu.graduationDate || 'N/A'})`).join('; ')\n  : '';\n\n// Format skills for Google Sheets\nconst skillsText = candidate.skills?.technical && candidate.skills.technical.length > 0\n  ? candidate.skills.technical.join(', ')\n  : '';\n\n// Get filename from Google Drive Trigger\nconst fileName = $('Google Drive Trigger1').item.json.name || 'Unknown';\n\n// Return enriched candidate data\nreturn [{\n  json: {\n    candidate: candidate,\n    score: finalScore,\n    status: status,\n    scoreBreakdown: scoreBreakdown,\n    yearsOfExperience: Math.round(totalYearsExperience * 10) / 10,\n    skillsMatched: skillsMatched,\n    fileName: fileName,\n    processedAt: new Date().toISOString(),\n    // Formatted for Google Sheets\n    experienceFormatted: experienceText,\n    educationFormatted: educationText,\n    skillsFormatted: skillsText\n  }\n}];"
+      },
+      "id": "987db80a-10ed-4b58-8d37-33badaa1751c",
+      "name": "Score Candidate1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        144
+      ],
+      "notes": "Calculate score based on experience, education, and skills"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "5ef72828-5dae-4142-8022-6052afd4cc05",
+      "name": "Merge Binary Data1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        944,
+        144
+      ],
+      "notes": "Combine metrics JSON with original resume binary"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "operation": "ask",
+        "inputType": "file",
+        "binaryPropertyName": "data",
+        "prompt": "Based on this resume document or image, provide a brief assessment of the candidate's strengths, potential roles they would fit, and any notable achievements. Also suggest their seniority level (Junior/Mid/Senior/Lead)."
+      },
+      "id": "b3e53a7f-d917-4fea-bed6-fea2894fcef6",
+      "name": "PDF Vector - AI Assessment1",
+      "type": "n8n-nodes-pdfvector.pdfVector",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        144
+      ],
+      "notes": "Get AI assessment"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Candidate Name": "={{ $json.candidate.personalInfo.name }}",
+            "Email": "={{ $json.candidate.personalInfo.email }}",
+            "Phone": "={{ $json.candidate.personalInfo.phone }}",
+            "Location": "={{ $json.candidate.personalInfo.location }}",
+            "Years Experience": "={{ $json.yearsOfExperience }}",
+            "Score": "={{ $json.score }}",
+            "Status": "={{ $json.status }}",
+            "Experience Score": "={{ $json.scoreBreakdown.experienceScore }}",
+            "Education Score": "={{ $json.scoreBreakdown.educationScore }}",
+            "Skills Score": "={{ $json.scoreBreakdown.skillsScore }}",
+            "Skills Matched": "={{ $json.skillsMatched }}",
+            "Experience": "={{ $json.experienceFormatted }}",
+            "Education": "={{ $json.educationFormatted }}",
+            "Skills": "={{ $json.skillsFormatted }}",
+            "LinkedIn": "={{ $json.candidate.personalInfo.linkedIn || 'N/A' }}",
+            "AI Assessment": "={{ $('PDF Vector - AI Assessment1').item.json.markdown }}",
+            "File Name": "={{ $json.fileName }}",
+            "Resume Link": "=https://drive.google.com/file/d/{{ $('Google Drive Trigger1').item.json.id }}/view",
+            "Resume File ID": "={{ $('Google Drive Trigger1').item.json.id }}",
+            "Processed Date": "={{ $json.processedAt.split('T')[0] }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "6db1fe80-b36c-4aff-b8e0-c40b54da1ede",
+      "name": "Log to Candidate Database1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        1344,
+        144
+      ],
+      "notes": "Save candidate to Google Sheets"
+    },
+    {
+      "parameters": {
+        "text": "=👤 *New Candidate Processed*\n\n*Name:* {{ $('Score Candidate1').item.json.candidate.personalInfo.name }}\n*Score:* {{ $('Score Candidate1').item.json.score }}/100\n*Status:* {{ $('Score Candidate1').item.json.status }}\n\n*Score Breakdown:*\n• Experience: {{ $('Score Candidate1').item.json.scoreBreakdown.experienceScore }}/40 pts ({{ $('Score Candidate1').item.json.yearsOfExperience }} years)\n• Education: {{ $('Score Candidate1').item.json.scoreBreakdown.educationScore }}/30 pts\n• Skills: {{ $('Score Candidate1').item.json.scoreBreakdown.skillsScore }}/30 pts ({{ $('Score Candidate1').item.json.skillsMatched }} matched)\n\n*Top Skills:* {{ $('Score Candidate1').item.json.skillsFormatted.split(', ').slice(0, 5).join(', ') || 'N/A' }}\n\n*Contact:* {{ $('Score Candidate1').item.json.candidate.personalInfo.email }}\n\n*Resume:* https://drive.google.com/file/d/{{ $('Google Drive Trigger1').item.json.id }}/view",
+        "otherOptions": {}
+      },
+      "id": "7d4271dd-564f-40fd-afd0-a8caabc01286",
+      "name": "Notify Recruiter1",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        1552,
+        144
+      ],
+      "webhookId": "1f8050fd-da1f-4188-bd98-69c214bc1cd1",
+      "notes": "Alert recruiting team"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Drive Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Get Resume from Google Drive1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Resume from Google Drive1": {
+      "main": [
+        [
+          {
+            "node": "PDF Vector - Parse Resume1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Binary Data1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "PDF Vector - Parse Resume1": {
+      "main": [
+        [
+          {
+            "node": "Score Candidate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Candidate1": {
+      "main": [
+        [
+          {
+            "node": "Merge Binary Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Binary Data1": {
+      "main": [
+        [
+          {
+            "node": "PDF Vector - AI Assessment1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Vector - AI Assessment1": {
+      "main": [
+        [
+          {
+            "node": "Log to Candidate Database1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Candidate Database1": {
+      "main": [
+        [
+          {
+            "node": "Notify Recruiter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "aca7bd79-3870-4d6b-bfd4-24d9291b8620",
+  "meta": {
+    "instanceId": "b4a9372addbbd747f7a1557b539e3d3b65b372406c49eea377aa96bab731c1b4"
+  },
+  "id": "xboTGsLSxrkNJtgj",
+  "tags": []
+}
