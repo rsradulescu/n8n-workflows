@@ -16,8 +16,8 @@
       "type": "n8n-nodes-base.googleDriveTrigger",
       "typeVersion": 1,
       "position": [
-        144,
-        144
+        96,
+        592
       ],
       "notes": "Watch 'Resumes' folder for new files"
     },
@@ -32,8 +32,8 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        352,
-        144
+        336,
+        592
       ],
       "notes": "Download resume file from Google Drive"
     },
@@ -51,8 +51,8 @@
       "type": "n8n-nodes-pdfvector.pdfVector",
       "typeVersion": 1,
       "position": [
-        544,
-        144
+        416,
+        240
       ],
       "notes": "Extract candidate information"
     },
@@ -65,8 +65,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        752,
-        144
+        720,
+        240
       ],
       "notes": "Calculate score based on experience, education, and skills"
     },
@@ -81,8 +81,8 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
       "position": [
-        944,
-        144
+        1024,
+        336
       ],
       "notes": "Combine metrics JSON with original resume binary"
     },
@@ -99,8 +99,8 @@
       "type": "n8n-nodes-pdfvector.pdfVector",
       "typeVersion": 1,
       "position": [
-        1152,
-        144
+        1248,
+        336
       ],
       "notes": "Get AI assessment"
     },
@@ -149,8 +149,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.4,
       "position": [
-        1344,
-        144
+        1440,
+        336
       ],
       "notes": "Save candidate to Google Sheets"
     },
@@ -164,11 +164,41 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.1,
       "position": [
-        1552,
-        144
+        1648,
+        336
       ],
       "webhookId": "1f8050fd-da1f-4188-bd98-69c214bc1cd1",
       "notes": "Alert recruiting team"
+    },
+    {
+      "parameters": {
+        "content": "### Parser resume and scoring\n\nParses resumes from any format (PDF, Word, even photos) uploaded to Google Drive, extracts structured data, calculates a 0-100 score based on experience, education, skills, provides AI-powered candidate assessments, and logs everything to Google Sheets with Slack notifications. ",
+        "width": 1040
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        240,
+        -48
+      ],
+      "typeVersion": 1,
+      "id": "aadecb3f-d026-4545-a7ea-dc4e53727e29",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "# Scoring System\n##  -----   Total: 100 Points.  --------\n\n\n\n\n\n\n\n\n\n\n\n### Experience (40 points max):\n5+ years: 40 points\n2-5 years: 25 points\n0-2 years: 10 points\n\n### Education (30 points max):\nPhD/Doctorate: 30 points\nMaster's/MBA: 25 points\nBachelor's: 20 points\nOther: 10 points\n\n### Skills Match (30 points max):\n3 points per matched skill (max 10 skills)\nDefault required skills: JavaScript, Python, React, Node.js, SQL, API, Git, AWS, Docker\nCustomize this list for your needs!\n\n## Status Assignment:\n75-100: \"Strong Candidate - Schedule Interview\"\n50-74: \"Potential - Review Further\"\n0-49: \"Not a Match\"\n",
+        "height": 752,
+        "width": 384,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        576,
+        128
+      ],
+      "typeVersion": 1,
+      "id": "b0116b02-623a-46b9-b44b-d24cbe27c980",
+      "name": "Sticky Note1"
     }
   ],
   "pinData": {},
@@ -262,7 +292,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "aca7bd79-3870-4d6b-bfd4-24d9291b8620",
+  "versionId": "6179b4e8-efc7-4d7a-acc4-1d1b2dea7418",
   "meta": {
     "instanceId": "b4a9372addbbd747f7a1557b539e3d3b65b372406c49eea377aa96bab731c1b4"
   },
